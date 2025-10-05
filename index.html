@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>私密留言板 - 用户登录</title>
+    <title>私密对话系统 - 用户登录</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="login-container">
         <div class="login-box">
-            <h1>🔐 私密留言板</h1>
+            <h1>🔐 私密对话系统</h1>
             <p class="subtitle">请输入您的访问密钥</p>
             
             <div class="input-group">
@@ -18,17 +18,7 @@
             </div>
             
             <div class="admin-link">
-                <a href="admin.html">管理员入口</a>
-            </div>
-            
-            <div class="features">
-                <h3>功能特点：</h3>
-                <ul>
-                    <li>🔒 端到端加密对话</li>
-                    <li>💬 支持完整格式文本</li>
-                    <li>🔄 实时消息同步</li>
-                    <li>📱 多设备访问</li>
-                </ul>
+                <a href="admin-login.html">管理员登录</a>
             </div>
         </div>
     </div>
@@ -50,14 +40,15 @@
             showAlert('验证密钥中...', 'info');
             
             try {
-                // 查找包含该密钥的Issue
-                const issue = await findIssueBySecretKey(secretKey);
-                if (issue) {
-                    // 跳转到对话界面，传递Issue信息
-                    localStorage.setItem('currentChat', JSON.stringify({
-                        issueNumber: issue.number,
+                // 查找包含该密钥的对话
+                const chat = await findChatBySecretKey(secretKey);
+                if (chat) {
+                    // 跳转到对话界面
+                    sessionStorage.setItem('currentChat', JSON.stringify({
+                        issueNumber: chat.issueNumber,
                         secretKey: secretKey,
-                        userType: 'user'
+                        userType: 'user',
+                        chatTitle: chat.title
                     }));
                     window.location.href = 'chat.html';
                 } else {
