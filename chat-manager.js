@@ -29,7 +29,7 @@ class ChatManager {
         } else if (sessionChat) {
             this.currentChat = JSON.parse(sessionChat);
         } else {
-            this.showErrorMessage('未找到对话信息');
+            this.showErrorMessage('未找到对话信息，请重新登录');
             setTimeout(() => {
                 window.location.href = 'index.html';
             }, 3000);
@@ -46,9 +46,6 @@ class ChatManager {
         const userBadge = document.getElementById('user-type-badge');
         userBadge.textContent = this.userType === 'admin' ? '管理员' : '用户';
         userBadge.className = `user-badge ${this.userType}`;
-        
-        document.getElementById('back-text').textContent = 
-            this.userType === 'admin' ? '返回管理' : '返回';
     }
 
     bindEvents() {
@@ -62,17 +59,14 @@ class ChatManager {
         messageInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 if (e.shiftKey) {
-                    // Shift+Enter 换行
                     return;
                 } else {
-                    // Enter 发送
                     e.preventDefault();
                     this.sendMessage();
                 }
             }
         });
 
-        // 自动调整输入框高度
         messageInput.addEventListener('input', () => {
             this.adjustTextareaHeight(messageInput);
         });
@@ -101,7 +95,13 @@ class ChatManager {
             this.lastMessageCount = messages.length;
         } catch (error) {
             console.error('加载消息错误:', error);
-            this.showErrorMessage('加载消息失败: ' + error.message);
+            if (error.message.includes('频率限制')) {
+                this.showRateLimitError();
+            } else if (error.message.includes('不存在')) {
+                this.showNotFoundError();
+            } else {
+                this.showErrorMessage('加载消息失败: ' + error.message);
+            }
         }
     }
 
@@ -126,22 +126,18 @@ class ChatManager {
     displayMessages(messages) {
         const messageList = document.getElementById('message-list');
         
-        // 移除加载状态
         const loadingElement = messageList.querySelector('.loading-messages');
         if (loadingElement) {
             loadingElement.remove();
         }
 
-        if (messages.length === 0) {
-            // 保留欢迎消息
-            return;
+        const errorElement = messageList.querySelector('.error-message');
+        if (errorElement) {
+            errorElement.remove();
         }
 
-        // 移除旧的动态消息，保留欢迎消息
-        const welcomeMessage = messageList.querySelector('.welcome-message');
-        messageList.innerHTML = '';
-        if (welcomeMessage) {
-            messageList.appendChild(welcomeMessage);
+        if (messages.length === 0) {
+            return;
         }
 
         const messagesHTML = messages.map((msg) => {
@@ -166,7 +162,6 @@ class ChatManager {
 
         messageList.innerHTML += messagesHTML;
         
-        // 检查是否有新消息
         const hasNewMessages = messages.length > this.lastMessageCount;
         if (hasNewMessages || this.lastMessageCount === 0) {
             this.scrollToBottom();
@@ -182,11 +177,9 @@ class ChatManager {
         div.textContent = content;
         let escaped = div.innerHTML;
         
-        // 保留换行和空格
         escaped = escaped.replace(/\n/g, '<br>');
         escaped = escaped.replace(/  /g, ' &nbsp;');
         
-        // 链接检测
         escaped = escaped.replace(
             /(https?:\/\/[^\s<]+)/g, 
             '<a href="$1" target="_blank" rel="noopener" style="color: inherit; text-decoration: underline;">$1</a>'
@@ -201,11 +194,6 @@ class ChatManager {
         
         if (!message) {
             showAlert('请输入消息内容', 'error');
-            return;
-        }
-
-        if (message.length > 10000) {
-            showAlert('消息过长，请缩短内容', 'error');
             return;
         }
 
@@ -233,12 +221,49 @@ class ChatManager {
             
         } catch (error) {
             console.error('发送消息错误:', error);
-            showAlert('发送失败: ' + error.message, 'error');
+            if (error.message.includes('频率限制')) {
+                showAlert('API频率限制，请稍后重试或使用Token认证', 'error');
+            } else {
+                showAlert('发送失败: ' + error.message, 'error');
+            }
         } finally {
             sendBtn.disabled = false;
             sendBtn.innerHTML = originalText;
             input.focus();
         }
+    }
+
+    showRateLimitError() {
+        const messageList = document.getElementById('message-list');
+        messageList.innerHTML = `
+            <div class="error-message">
+                <div class="error-icon">⏰</div>
+                <div class="error-text">GitHub API频率限制</div>
+                <p style="color: #666; margin: 10px 0; font-size: 14px;">
+                    请求过于频繁，请：
+                </p>
+                <ul style="text-align: left; color: #666; margin: 10px 0;">
+                    <li>使用GitHub Token认证</li>
+                    <li>等待几分钟后重试</li>
+                    <li>减少自动刷新频率</li>
+                </ul>
+                <button onclick="chatManager.loadMessages()" class="retry-btn">重新加载</button>
+            </div>
+        `;
+    }
+
+    showNotFoundError() {
+        const messageList = document.getElementById('message-list');
+        messageList.innerHTML = `
+            <div class="error-message">
+                <div class="error-icon">🔍</div>
+                <div class="error-text">对话不存在</div>
+                <p style="color: #666; margin: 10px 0; font-size: 14px;">
+                    此对话可能已被删除或密钥已失效
+                </p>
+                <button onclick="chatManager.goBack()" class="retry-btn">返回</button>
+            </div>
+        `;
     }
 
     showErrorMessage(message) {
@@ -272,7 +297,7 @@ class ChatManager {
             } catch (error) {
                 console.error('自动刷新消息错误:', error);
             }
-        }, 3000);
+        }, 5000); // 降低到5秒一次，减少API调用
     }
 
     stopAutoRefresh() {
