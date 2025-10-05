@@ -1,7 +1,7 @@
 // === 配置区域 === ！！需要您修改！！
 // 请将下面‘YOUR_GITHUB_USERNAME’替换成您自己的GitHub用户名
 const CONFIG = {
-    owner: 'YOUR_GITHUB_USERNAME', // 修改这里！
+    owner: '159sunsu753', // 修改这里！
     repo: 'my-message-board',
     issue_number: 1, // 我们下一步会创建，先保留1
     secretPassword: '此网站9999' // 这是访问密码，可以按需修改
