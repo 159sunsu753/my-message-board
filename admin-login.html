@@ -45,48 +45,33 @@
                 return;
             }
 
-            showAlert('验证身份中...', 'info');
+            showAlert('系统初始化中...', 'info');
 
             try {
                 const isValid = await verifyAdminCredentials(username, password);
                 if (isValid) {
-                    // 保存管理员登录状态（sessionStorage，关闭浏览器即清除）
+                    // 保存管理员登录状态
                     sessionStorage.setItem('adminAuth', JSON.stringify({
                         username: username,
                         loginTime: new Date().toISOString()
                     }));
-                    window.location.href = 'admin.html';
+                    showAlert('登录成功！', 'success');
+                    setTimeout(() => {
+                        window.location.href = 'admin.html';
+                    }, 1000);
                 } else {
                     showAlert('账号或密码错误', 'error');
                 }
             } catch (error) {
                 console.error('管理员登录错误:', error);
-                if (error.message.includes('404')) {
-                    showAlert('系统未初始化，请检查配置', 'error');
-                } else {
-                    showAlert('登录失败: ' + error.message, 'error');
-                }
+                showAlert('登录失败: ' + error.message, 'error');
             }
         }
 
-        // 检查是否已有管理员配置
-        async function checkInitialSetup() {
-            try {
-                await getAdminConfig();
-                // 配置已存在
-            } catch (error) {
-                if (error.message.includes('404')) {
-                    document.querySelector('.setup-info').innerHTML = `
-                        <h4>🔧 系统初始化</h4>
-                        <p>首次使用需要创建管理员账号。请使用任意账号密码登录完成初始化。</p>
-                        <p style="color: #4CAF50; font-weight: bold;">提示：首次登录的账号密码将成为管理员凭证</p>
-                    `;
-                }
-            }
-        }
-
-        // 页面加载时检查初始化状态
-        document.addEventListener('DOMContentLoaded', checkInitialSetup);
+        // 页面加载提示
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('管理员登录页面加载完成');
+        });
     </script>
 </body>
 </html>
