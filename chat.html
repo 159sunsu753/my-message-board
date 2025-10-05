@@ -8,27 +8,58 @@
 </head>
 <body>
     <div class="chat-container">
+        <!-- 头部 -->
         <div class="chat-header">
-            <h2 id="chat-title">私密对话</h2>
+            <div class="chat-info">
+                <div class="chat-avatar">💬</div>
+                <div class="chat-details">
+                    <h2 id="chat-title">私密对话</h2>
+                    <span id="chat-status" class="status-online">● 在线</span>
+                </div>
+            </div>
             <div class="chat-actions">
-                <span id="user-type-badge" class="user-badge"></span>
+                <span id="user-type-badge" class="user-badge user">用户</span>
                 <button id="back-btn" class="back-button">
-                    <span id="back-text">返回</span>
+                    <span>← 返回</span>
                 </button>
             </div>
         </div>
 
-        <div class="chat-messages" id="message-list">
-            <div class="loading-messages">加载对话中...</div>
+        <!-- 消息区域 -->
+        <div class="messages-container">
+            <div class="messages-scroll" id="message-list">
+                <div class="welcome-message">
+                    <div class="welcome-avatar">👋</div>
+                    <div class="welcome-content">
+                        <h3>欢迎开始对话</h3>
+                        <p>这是您的私密对话空间，所有消息都会安全保存</p>
+                        <div class="welcome-features">
+                            <span>✅ 端到端加密</span>
+                            <span>✅ 多设备同步</span>
+                            <span>✅ 实时更新</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div class="chat-input-area">
-            <textarea 
-                id="message-input" 
-                placeholder="输入您的消息...（支持换行，Enter发送，Shift+Enter换行）" 
-                rows="3"
-            ></textarea>
-            <button id="send-btn" class="send-button">发送</button>
+        <!-- 输入区域 -->
+        <div class="input-container">
+            <div class="input-wrapper">
+                <textarea 
+                    id="message-input" 
+                    placeholder="输入消息... (Enter发送，Shift+Enter换行)"
+                    rows="1"
+                ></textarea>
+                <button id="send-btn" class="send-button">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="input-hint">
+                <span>消息会自动保存到云端</span>
+            </div>
         </div>
     </div>
 
