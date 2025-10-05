@@ -37,8 +37,18 @@ function simpleDecrypt(encrypted) {
     }
 }
 
+// API请求计数器
+let apiRequestCount = 0;
+const MAX_REQUESTS_PER_MINUTE = 30;
+
 async function githubApiRequest(url, options = {}) {
-    console.log('API请求:', url);
+    apiRequestCount++;
+    console.log(`API请求 #${apiRequestCount}:`, url);
+    
+    // 检查频率限制
+    if (apiRequestCount > MAX_REQUESTS_PER_MINUTE) {
+        throw new Error('API请求过于频繁，请稍后重试');
+    }
     
     try {
         const fullUrl = `${CONFIG.apiBase}${url}`;
@@ -50,9 +60,18 @@ async function githubApiRequest(url, options = {}) {
             ...options
         };
 
-        console.log('请求选项:', requestOptions);
-
         const response = await fetch(fullUrl, requestOptions);
+        
+        if (response.status === 403) {
+            const errorData = await response.json();
+            if (errorData.message.includes('rate limit')) {
+                throw new Error('GitHub API频率限制，请使用Token认证或稍后重试');
+            }
+        }
+        
+        if (response.status === 404) {
+            throw new Error('资源不存在，请检查配置或重新初始化系统');
+        }
         
         if (!response.ok) {
             let errorText = '';
@@ -104,6 +123,7 @@ async function initializeSystem(adminUsername, adminPassword) {
         });
         
         console.log('系统初始化成功，Issue编号:', issue.number);
+        // 更新配置Issue编号
         CONFIG.CONFIG_ISSUE_NUMBER = issue.number;
         return issue;
     } catch (error) {
@@ -128,7 +148,7 @@ async function getAdminConfig() {
         }
         throw new Error('配置格式错误');
     } catch (error) {
-        if (error.message.includes('404')) {
+        if (error.message.includes('404') || error.message.includes('不存在')) {
             throw new Error('系统未初始化，请先登录管理员账号完成初始化');
         }
         throw error;
@@ -236,7 +256,7 @@ async function findChatBySecretKey(secretKey) {
     console.log('查找密钥:', secretKey);
     const chats = await getAllChats();
     const chat = chats.find(chat => chat.secretKey === secretKey);
-    console.log('查找结果:', chat ? '找到' : '未找到');
+    console.log('查找结果:', chat ? `找到对话 #${chat.id}` : '未找到');
     return chat;
 }
 
@@ -278,7 +298,8 @@ async function getAdminToken() {
     let token = sessionStorage.getItem('githubToken');
     
     if (!token) {
-        token = prompt('请输入 GitHub Personal Access Token（需要 repo 权限）:');
+        // 创建更好的Token输入界面
+        token = await createTokenModal();
         if (!token) {
             throw new Error('需要 GitHub Token 才能执行此操作');
         }
@@ -293,6 +314,118 @@ async function getAdminToken() {
     }
     
     return token;
+}
+
+function createTokenModal() {
+    return new Promise((resolve) => {
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        `;
+        
+        modal.innerHTML = `
+            <div style="
+                background: white;
+                padding: 30px;
+                border-radius: 15px;
+                max-width: 500px;
+                width: 90%;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            ">
+                <h3 style="margin: 0 0 15px 0; color: #1a1a1a;">🔑 GitHub Token 认证</h3>
+                <div style="
+                    background: #f8f9fa;
+                    padding: 15px;
+                    border-radius: 8px;
+                    margin-bottom: 20px;
+                    font-size: 14px;
+                    color: #666;
+                ">
+                    <p><strong>需要 Token 来访问 GitHub API：</strong></p>
+                    <p>• 避免频率限制</p>
+                    <p>• 创建和管理对话</p>
+                    <p>• 发送和接收消息</p>
+                    <a href="https://github.com/settings/tokens/new" target="_blank" style="
+                        display: inline-block;
+                        background: #24292e;
+                        color: white;
+                        padding: 8px 16px;
+                        border-radius: 6px;
+                        text-decoration: none;
+                        margin-top: 10px;
+                        font-size: 13px;
+                    ">创建新的 Token</a>
+                </div>
+                <input type="password" id="token-input" placeholder="输入 ghp_ 开头的 Token" style="
+                    width: 100%;
+                    padding: 12px;
+                    border: 2px solid #e1e5e9;
+                    border-radius: 8px;
+                    font-family: monospace;
+                    font-size: 14px;
+                    margin-bottom: 15px;
+                ">
+                <div style="display: flex; gap: 10px;">
+                    <button id="confirm-token" style="
+                        flex: 1;
+                        padding: 12px;
+                        background: #007AFF;
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        font-weight: 600;
+                    ">确认</button>
+                    <button id="cancel-token" style="
+                        flex: 1;
+                        padding: 12px;
+                        background: #f5f5f5;
+                        color: #666;
+                        border: none;
+                        border-radius: 8px;
+                        cursor: pointer;
+                    ">取消</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        const tokenInput = modal.querySelector('#token-input');
+        const confirmBtn = modal.querySelector('#confirm-token');
+        const cancelBtn = modal.querySelector('#cancel-token');
+        
+        tokenInput.focus();
+        
+        const confirmHandler = () => {
+            const token = tokenInput.value.trim();
+            if (token) {
+                document.body.removeChild(modal);
+                resolve(token);
+            }
+        };
+        
+        const cancelHandler = () => {
+            document.body.removeChild(modal);
+            resolve(null);
+        };
+        
+        confirmBtn.addEventListener('click', confirmHandler);
+        cancelBtn.addEventListener('click', cancelHandler);
+        
+        tokenInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') confirmHandler();
+        });
+    });
 }
 
 function checkAdminAuth() {
@@ -317,11 +450,16 @@ function formatMessageContent(content) {
     // 链接检测
     escaped = escaped.replace(
         /(https?:\/\/[^\s<]+)/g, 
-        '<a href="$1" target="_blank" rel="noopener" style="color: #2196F3; text-decoration: underline;">$1</a>'
+        '<a href="$1" target="_blank" rel="noopener" style="color: inherit; text-decoration: underline;">$1</a>'
     );
     
     return escaped;
 }
+
+// 每分钟重置API计数器
+setInterval(() => {
+    apiRequestCount = 0;
+}, 60000);
 
 // 调试信息
 console.log('系统配置:', CONFIG);
