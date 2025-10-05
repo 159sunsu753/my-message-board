@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>私密对话系统 - 管理员登录</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-box">
+            <h1>🛠️ 管理员登录</h1>
+            <p class="subtitle">请输入管理员账号和密码</p>
+            
+            <div class="input-group">
+                <input type="text" id="admin-username" placeholder="管理员账号" autocomplete="off">
+                <input type="password" id="admin-password" placeholder="管理员密码">
+                <button id="admin-login-btn" class="login-button">登录管理终端</button>
+            </div>
+            
+            <div class="admin-link">
+                <a href="index.html">用户登录</a>
+            </div>
+            
+            <div class="setup-info" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; font-size: 0.9em;">
+                <h4>首次使用说明：</h4>
+                <p>首次登录需要设置管理员账号密码，请在登录后进入系统设置完成初始化。</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        document.getElementById('admin-login-btn').addEventListener('click', adminLogin);
+        document.getElementById('admin-password').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') adminLogin();
+        });
+
+        async function adminLogin() {
+            const username = document.getElementById('admin-username').value.trim();
+            const password = document.getElementById('admin-password').value.trim();
+            
+            if (!username || !password) {
+                showAlert('请输入账号和密码', 'error');
+                return;
+            }
+
+            showAlert('验证身份中...', 'info');
+
+            try {
+                const isValid = await verifyAdminCredentials(username, password);
+                if (isValid) {
+                    // 保存管理员登录状态（sessionStorage，关闭浏览器即清除）
+                    sessionStorage.setItem('adminAuth', JSON.stringify({
+                        username: username,
+                        loginTime: new Date().toISOString()
+                    }));
+                    window.location.href = 'admin.html';
+                } else {
+                    showAlert('账号或密码错误', 'error');
+                }
+            } catch (error) {
+                console.error('管理员登录错误:', error);
+                if (error.message.includes('404')) {
+                    showAlert('系统未初始化，请检查配置', 'error');
+                } else {
+                    showAlert('登录失败: ' + error.message, 'error');
+                }
+            }
+        }
+
+        // 检查是否已有管理员配置
+        async function checkInitialSetup() {
+            try {
+                await getAdminConfig();
+                // 配置已存在
+            } catch (error) {
+                if (error.message.includes('404')) {
+                    document.querySelector('.setup-info').innerHTML = `
+                        <h4>🔧 系统初始化</h4>
+                        <p>首次使用需要创建管理员账号。请使用任意账号密码登录完成初始化。</p>
+                        <p style="color: #4CAF50; font-weight: bold;">提示：首次登录的账号密码将成为管理员凭证</p>
+                    `;
+                }
+            }
+        }
+
+        // 页面加载时检查初始化状态
+        document.addEventListener('DOMContentLoaded', checkInitialSetup);
+    </script>
+</body>
+</html>
