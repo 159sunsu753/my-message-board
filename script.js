@@ -1,271 +1,321 @@
-// === 配置区域 === ！！请检查这些配置是否正确！！
+// === 系统配置 ===
 const CONFIG = {
     owner: '159sunsu753', // 您的GitHub用户名
-    repo: 'my-message-board', // 您的仓库名
-    issue_number: 1, // 您创建的Issue编号
-    secretPassword: '此网站9999', // 访问密码（支持中文！）
-    autoRefreshInterval: 10000 // 自动刷新时间（毫秒），10秒 = 10000
+    repo: 'my-message-board', // 仓库名
+    apiBase: 'https://api.github.com'
 };
-// === 配置结束 ===
 
-// 获取页面元素
-const loginScreen = document.getElementById('login-screen');
-const messageBoard = document.getElementById('message-board');
-const passwordInput = document.getElementById('password-input');
-const loginButton = document.getElementById('login-button');
-const messageList = document.getElementById('message-list');
-const messageInput = document.getElementById('message-input');
-const submitButton = document.getElementById('submit-button');
-const logoutButton = document.getElementById('logout-button');
+// === 通用工具函数 ===
 
-// 全局变量
-let refreshInterval = null;
-let cachedToken = ''; // 缓存Token，避免重复输入
-
-// 1. 登录逻辑
-loginButton.addEventListener('click', handleLogin);
-passwordInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') handleLogin();
-});
-
-function handleLogin() {
-    const inputPassword = passwordInput.value.trim();
-    if (inputPassword === CONFIG.secretPassword) {
-        loginScreen.style.display = 'none';
-        messageBoard.style.display = 'block';
-        passwordInput.value = '';
-        initializeMessageBoard();
-    } else {
-        showAlert('密码错误，请重新输入！', 'error');
-        passwordInput.value = '';
-        passwordInput.focus();
-    }
-}
-
-// 退出登录
-logoutButton.addEventListener('click', () => {
-    // 清除自动刷新
-    if (refreshInterval) {
-        clearInterval(refreshInterval);
-        refreshInterval = null;
-    }
-    // 清除缓存的Token
-    cachedToken = '';
-    // 回到登录界面
-    messageBoard.style.display = 'none';
-    loginScreen.style.display = 'flex';
-    messageInput.value = '';
-});
-
-// 2. 初始化留言板
-function initializeMessageBoard() {
-    // 立即加载一次留言
-    loadMessages();
-    
-    // 设置定时自动刷新
-    if (refreshInterval) {
-        clearInterval(refreshInterval);
-    }
-    refreshInterval = setInterval(loadMessages, CONFIG.autoRefreshInterval);
-    
-    // 焦点放到输入框
-    messageInput.focus();
-}
-
-// 3. 显示提示信息（比alert更友好）
+// 显示提示信息
 function showAlert(message, type = 'info') {
-    // 移除已有的提示
+    // 移除现有提示
     const existingAlert = document.querySelector('.custom-alert');
     if (existingAlert) {
         existingAlert.remove();
     }
-    
+
     // 创建新提示
     const alert = document.createElement('div');
     alert.className = `custom-alert ${type}`;
     alert.textContent = message;
     
-    // 添加到页面
     document.body.appendChild(alert);
-    
-    // 3秒后自动消失
+
+    // 自动消失
     setTimeout(() => {
         if (alert.parentNode) {
             alert.remove();
         }
-    }, 3000);
+    }, type === 'error' ? 5000 : 3000);
 }
 
-// 4. 加载留言的函数（增强版）
-async function loadMessages() {
-    try {
-        const apiUrl = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/issues/${CONFIG.issue_number}/comments`;
-        const response = await fetch(apiUrl);
-
-        if (!response.ok) {
-            throw new Error(`网络请求失败: ${response.status}`);
+// GitHub API 请求封装
+async function githubApiRequest(url, options = {}) {
+    const defaultOptions = {
+        headers: {
+            'Accept': 'application/vnd.github.v3+json',
+            ...options.headers
         }
+    };
 
-        const comments = await response.json();
-        
-        // 记录当前滚动位置
-        const wasAtBottom = isScrolledToBottom();
-        
-        updateMessageList(comments);
-        
-        // 如果之前就在底部，或者这是第一次加载，滚动到底部
-        if (wasAtBottom || messageList.children.length === comments.length) {
-            scrollToBottom();
-        }
-
-    } catch (error) {
-        console.error('加载留言出错:', error);
-        if (messageList.children.length === 0 || 
-            (messageList.children.length === 1 && 
-             messageList.children[0].textContent.includes('加载中'))) {
-            messageList.innerHTML = '<li style="color: #666;">系统： 暂时无法加载留言，请检查网络连接。</li>';
-        }
+    const response = await fetch(`${CONFIG.apiBase}${url}`, { ...defaultOptions, ...options });
+    
+    if (!response.ok) {
+        throw new Error(`GitHub API 错误: ${response.status} ${response.statusText}`);
     }
+    
+    return response.json();
 }
 
-// 检查是否滚动到底部
-function isScrolledToBottom() {
-    const threshold = 100; // 距离底部的阈值
-    return messageList.scrollTop + messageList.clientHeight >= messageList.scrollHeight - threshold;
-}
+// === 密钥管理功能 ===
 
-// 滚动到底部
-function scrollToBottom() {
-    messageList.scrollTop = messageList.scrollHeight;
-}
+// 创建新密钥（Issue）
+async function createNewIssue(keyName, secretKey, token) {
+    const issueTitle = `密钥: ${keyName}`;
+    const issueBody = `🔐 密钥对话线程\n\n**密钥:** ${secretKey}\n**创建时间:** ${new Date().toLocaleString('zh-CN')}\n\n此Issue用于存储与密钥 "${secretKey}" 相关的所有对话。`;
 
-// 更新留言列表
-function updateMessageList(comments) {
-    if (comments.length === 0) {
-        messageList.innerHTML = '<li style="color: #666;">系统： 还没有留言，快来发送第一条吧！</li>';
-        return;
-    }
-
-    // 创建新的留言列表
-    let newHTML = '';
-    comments.forEach(comment => {
-        const date = new Date(comment.created_at).toLocaleString('zh-CN');
-        newHTML += `
-            <li>
-                <strong>${comment.user.login}</strong> 
-                <span style="color: #666; font-size: 0.9em;">(${date})</span>:
-                <br>
-                ${escapeHtml(comment.body)}
-            </li>
-        `;
+    const issue = await githubApiRequest(`/repos/${CONFIG.owner}/${CONFIG.repo}/issues`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `token ${token}`
+        },
+        body: JSON.stringify({
+            title: issueTitle,
+            body: issueBody,
+            labels: ['secret-chat']
+        })
     });
-    
-    // 只有当内容真正改变时才更新DOM，避免不必要的闪烁
-    if (messageList.innerHTML !== newHTML) {
-        messageList.innerHTML = newHTML;
+
+    return issue;
+}
+
+// 获取所有Issue（密钥列表）
+async function getAllIssues() {
+    try {
+        const issues = await githubApiRequest(`/repos/${CONFIG.owner}/${CONFIG.repo}/issues?state=all&per_page=100`);
+        // 过滤出密钥相关的Issue
+        return issues.filter(issue => issue.title.startsWith('密钥:'));
+    } catch (error) {
+        console.error('获取Issue列表错误:', error);
+        throw error;
     }
 }
 
-// HTML转义，防止XSS攻击
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+// 根据密钥查找Issue
+async function findIssueBySecretKey(secretKey) {
+    try {
+        const issues = await getAllIssues();
+        
+        for (const issue of issues) {
+            // 从Issue内容中提取密钥
+            const issueSecretKey = extractSecretKeyFromIssue(issue);
+            if (issueSecretKey === secretKey) {
+                return issue;
+            }
+        }
+        
+        return null; // 未找到匹配的密钥
+    } catch (error) {
+        console.error('查找密钥错误:', error);
+        throw error;
+    }
 }
 
-// 5. 发送留言的函数（增强版）
-async function postMessage(messageText) {
-    let token = cachedToken;
+// 从Issue内容中提取密钥
+function extractSecretKeyFromIssue(issue) {
+    // 从Issue body中提取密钥
+    const keyMatch = issue.body.match(/\*\*密钥:\*\*\s*([^\n]+)/);
+    if (keyMatch && keyMatch[1]) {
+        return keyMatch[1].trim();
+    }
     
-    // 如果没有缓存的Token，就请求用户输入
+    // 备用方案：从标题中提取（用于旧版本兼容）
+    const titleMatch = issue.title.match(/密钥:\s*(.+)/);
+    if (titleMatch && titleMatch[1]) {
+        return titleMatch[1].trim();
+    }
+    
+    return '未知密钥';
+}
+
+// === 对话管理功能 ===
+
+// 获取Issue的所有评论（对话记录）
+async function getIssueComments(issueNumber) {
+    try {
+        const comments = await githubApiRequest(
+            `/repos/${CONFIG.owner}/${CONFIG.repo}/issues/${issueNumber}/comments?per_page=100`
+        );
+        
+        // 按时间排序
+        return comments.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    } catch (error) {
+        console.error('获取评论错误:', error);
+        throw error;
+    }
+}
+
+// 发布新评论（发送消息）
+async function postComment(issueNumber, message, token) {
     if (!token) {
-        token = prompt(`请粘贴您的 GitHub Personal Access Token：\n\n(为确保安全，此Token仅在此次会话中缓存，退出登录后清除)`);
-        
-        if (!token) {
-            showAlert('发送失败：需要Token才能发布留言。', 'error');
-            return false;
-        }
-        
-        // 验证Token格式
-        if (!token.startsWith('ghp_')) {
-            showAlert('Token格式似乎不正确，请检查后重试。', 'error');
-            return false;
-        }
-        
-        // 缓存Token
-        cachedToken = token;
+        throw new Error('需要GitHub Token才能发送消息');
     }
 
     try {
-        const apiUrl = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/issues/${CONFIG.issue_number}/comments`;
-        
-        const response = await fetch(apiUrl, {
+        await githubApiRequest(`/repos/${CONFIG.owner}/${CONFIG.repo}/issues/${issueNumber}/comments`, {
             method: 'POST',
             headers: {
                 'Authorization': `token ${token}`,
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                body: messageText
+                body: message
             })
         });
 
-        if (!response.ok) {
-            if (response.status === 401) {
-                // Token无效，清除缓存
-                cachedToken = '';
-                showAlert('Token无效或已过期，请重新输入。', 'error');
-            }
-            throw new Error(`发送失败: ${response.status} ${response.statusText}`);
-        }
-
-        showAlert('留言发送成功！', 'success');
         return true;
-
     } catch (error) {
-        console.error('发送留言出错:', error);
-        showAlert('发送失败：' + error.message, 'error');
-        return false;
+        console.error('发送消息错误:', error);
+        throw error;
     }
 }
 
-// 6. 发送按钮事件
-submitButton.addEventListener('click', handleSubmitMessage);
-
-// 按Ctrl+Enter发送
-messageInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && e.ctrlKey) {
-        handleSubmitMessage();
+// 检查新消息（用于实时同步）
+async function checkForNewMessages(issueNumber, lastChecked) {
+    try {
+        const comments = await getIssueComments(issueNumber);
+        const newMessages = comments.filter(comment => 
+            new Date(comment.created_at) > new Date(lastChecked)
+        );
+        
+        return {
+            hasNew: newMessages.length > 0,
+            messages: newMessages,
+            lastChecked: new Date().toISOString()
+        };
+    } catch (error) {
+        console.error('检查新消息错误:', error);
+        return { hasNew: false, messages: [], lastChecked };
     }
-});
-
-async function handleSubmitMessage() {
-    const text = messageInput.value.trim();
-    if (text === '') {
-        showAlert('留言内容不能为空！', 'error');
-        messageInput.focus();
-        return;
-    }
-
-    // 禁用按钮，防止重复发送
-    submitButton.disabled = true;
-    submitButton.textContent = '发送中...';
-
-    const success = await postMessage(text);
-
-    if (success) {
-        messageInput.value = ''; // 清空输入框
-        // 立即重新加载留言
-        loadMessages();
-    }
-
-    // 恢复按钮
-    submitButton.disabled = false;
-    submitButton.textContent = '发送留言';
-    messageInput.focus();
 }
 
-// 页面加载完成后的初始化
-document.addEventListener('DOMContentLoaded', function() {
-    passwordInput.focus();
+// === 数据同步功能 ===
+
+// 保存对话状态到本地存储
+function saveChatState(issueNumber, secretKey, userType, lastSync = null) {
+    const chatState = {
+        issueNumber,
+        secretKey,
+        userType,
+        lastSync: lastSync || new Date().toISOString(),
+        lastActive: new Date().toISOString()
+    };
+    
+    localStorage.setItem(`chat_${issueNumber}`, JSON.stringify(chatState));
+    localStorage.setItem('currentChat', JSON.stringify(chatState));
+}
+
+// 从本地存储加载对话状态
+function loadChatState(issueNumber) {
+    const saved = localStorage.getItem(`chat_${issueNumber}`);
+    return saved ? JSON.parse(saved) : null;
+}
+
+// 获取所有保存的对话状态
+function getAllChatStates() {
+    const states = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key.startsWith('chat_')) {
+            try {
+                const state = JSON.parse(localStorage.getItem(key));
+                states.push(state);
+            } catch (e) {
+                console.warn('解析保存的对话状态失败:', key);
+            }
+        }
+    }
+    return states;
+}
+
+// === 消息格式处理 ===
+
+// 格式化消息内容（保留所有格式）
+function formatMessageContent(content) {
+    if (!content) return '';
+    
+    // 转义HTML但保留换行和空格
+    const div = document.createElement('div');
+    div.textContent = content;
+    let escaped = div.innerHTML;
+    
+    // 保留换行
+    escaped = escaped.replace(/\n/g, '<br>');
+    
+    // 保留连续空格（可选）
+    // escaped = escaped.replace(/ /g, '&nbsp;');
+    
+    return escaped;
+}
+
+// 检测消息类型（文本、链接等）
+function detectMessageType(content) {
+    if (content.match(/https?:\/\/[^\s]+/)) {
+        return 'text-with-links';
+    }
+    if (content.length > 200) {
+        return 'long-text';
+    }
+    return 'text';
+}
+
+// === 实时同步管理器 ===
+
+class SyncManager {
+    constructor() {
+        this.syncIntervals = new Map();
+        this.syncCallbacks = new Map();
+    }
+
+    // 开始同步特定对话
+    startSync(issueNumber, callback, interval = 5000) {
+        this.stopSync(issueNumber);
+        
+        const syncInterval = setInterval(async () => {
+            try {
+                const lastState = loadChatState(issueNumber);
+                const result = await checkForNewMessages(
+                    issueNumber, 
+                    lastState?.lastSync || '1970-01-01'
+                );
+                
+                if (result.hasNew) {
+                    callback(result.messages);
+                    saveChatState(
+                        lastState?.issueNumber || issueNumber,
+                        lastState?.secretKey || 'unknown',
+                        lastState?.userType || 'user',
+                        result.lastChecked
+                    );
+                }
+            } catch (error) {
+                console.error('同步错误:', error);
+            }
+        }, interval);
+        
+        this.syncIntervals.set(issueNumber, syncInterval);
+        this.syncCallbacks.set(issueNumber, callback);
+    }
+
+    // 停止同步
+    stopSync(issueNumber) {
+        const interval = this.syncIntervals.get(issueNumber);
+        if (interval) {
+            clearInterval(interval);
+            this.syncIntervals.delete(issueNumber);
+            this.syncCallbacks.delete(issueNumber);
+        }
+    }
+
+    // 停止所有同步
+    stopAllSync() {
+        for (const interval of this.syncIntervals.values()) {
+            clearInterval(interval);
+        }
+        this.syncIntervals.clear();
+        this.syncCallbacks.clear();
+    }
+}
+
+// 创建全局同步管理器实例
+const syncManager = new SyncManager();
+
+// 页面卸载时清理
+window.addEventListener('beforeunload', () => {
+    syncManager.stopAllSync();
 });
+
+// 导出到全局作用域
+window.syncManager = syncManager;
+window.CONFIG = CONFIG;
