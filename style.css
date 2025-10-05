@@ -552,3 +552,219 @@ body {
         opacity: 1;
     }
 }
+/* 管理员聊天面板样式 */
+.chat-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: white;
+    height: 100vh;
+}
+
+.chat-panel-header {
+    background: white;
+    padding: 16px 20px;
+    border-bottom: 1px solid #eaeaea;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.chat-panel-header h3 {
+    margin: 0;
+    color: #1a1a1a;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.chat-panel-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* 内嵌聊天容器 */
+.chat-container-internal {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: white;
+}
+
+.messages-container-internal {
+    flex: 1;
+    overflow: hidden;
+    background: #f8f9fa;
+}
+
+.messages-scroll-internal {
+    height: 100%;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.input-container-internal {
+    padding: 20px;
+    background: white;
+    border-top: 1px solid #eaeaea;
+}
+
+.input-wrapper-internal {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+}
+
+#admin-message-input {
+    flex: 1;
+    padding: 12px 16px;
+    border: 2px solid #eaeaea;
+    border-radius: 12px;
+    resize: none;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.4;
+    max-height: 120px;
+    background: #fafafa;
+    transition: all 0.2s;
+}
+
+#admin-message-input:focus {
+    outline: none;
+    border-color: #007AFF;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+}
+
+.send-button-internal {
+    width: 44px;
+    height: 44px;
+    background: linear-gradient(135deg, #007AFF, #0056CC);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.send-button-internal:hover:not(:disabled) {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+}
+
+.send-button-internal:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* 管理员消息样式 */
+.admin-message {
+    display: flex;
+    max-width: 70%;
+    animation: messageAppear 0.3s ease;
+}
+
+.admin-own-message {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+}
+
+.admin-other-message {
+    align-self: flex-start;
+}
+
+.admin-message-bubble {
+    padding: 12px 16px;
+    border-radius: 18px;
+    position: relative;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    line-height: 1.4;
+}
+
+.admin-own-message .admin-message-bubble {
+    background: linear-gradient(135deg, #007AFF, #0056CC);
+    color: white;
+    border-bottom-right-radius: 6px;
+}
+
+.admin-other-message .admin-message-bubble {
+    background: white;
+    color: #1a1a1a;
+    border: 1px solid #eaeaea;
+    border-bottom-left-radius: 6px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.admin-message-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+    font-size: 12px;
+}
+
+.admin-own-message .admin-message-header {
+    flex-direction: row-reverse;
+}
+
+.admin-message-sender {
+    font-weight: 600;
+    opacity: 0.9;
+}
+
+.admin-own-message .admin-message-sender {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.admin-other-message .admin-message-sender {
+    color: #666;
+}
+
+.admin-message-time {
+    opacity: 0.7;
+    font-size: 11px;
+}
+
+.admin-own-message .admin-message-time {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.admin-other-message .admin-message-time {
+    color: #999;
+}
+
+.admin-message-content {
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .chat-panel-header {
+        padding: 12px 16px;
+    }
+    
+    .messages-scroll-internal {
+        padding: 16px;
+    }
+    
+    .admin-message {
+        max-width: 85%;
+    }
+    
+    .input-container-internal {
+        padding: 16px;
+    }
+}
