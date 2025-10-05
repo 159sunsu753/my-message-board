@@ -31,7 +31,7 @@
                     <button id="create-key-btn" class="primary-btn">创建新密钥</button>
                 </div>
                 
-                <div class="create-key-form">
+                <div class="create-key-form" style="display: none;">
                     <input type="text" id="new-key-name" placeholder="密钥名称（如：学生A）">
                     <input type="text" id="new-key-value" placeholder="密钥内容（支持中文）">
                     <button id="confirm-create-btn" class="primary-btn">确认创建</button>
@@ -110,12 +110,36 @@
             </div>
             
             <div id="chat-panel" class="chat-panel" style="display: none;">
-                <!-- 聊天界面通过iframe加载 -->
+                <!-- 完整的聊天界面 -->
                 <div class="chat-panel-header">
                     <button id="back-to-admin" class="back-button">← 返回管理</button>
                     <h3 id="current-chat-title">对话标题</h3>
                 </div>
-                <iframe id="chat-frame" src="about:blank" style="width: 100%; height: calc(100vh - 60px); border: none;"></iframe>
+                <div class="chat-panel-content">
+                    <!-- 这里直接嵌入聊天界面，而不是使用iframe -->
+                    <div class="chat-container-internal">
+                        <div class="messages-container-internal">
+                            <div class="messages-scroll-internal" id="admin-message-list">
+                                <div class="loading-messages">加载对话中...</div>
+                            </div>
+                        </div>
+                        
+                        <div class="input-container-internal">
+                            <div class="input-wrapper-internal">
+                                <textarea 
+                                    id="admin-message-input" 
+                                    placeholder="输入回复消息... (Enter发送，Shift+Enter换行)"
+                                    rows="2"
+                                ></textarea>
+                                <button id="admin-send-btn" class="send-button-internal">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
