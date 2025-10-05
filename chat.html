@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>对话界面</title>
+    <title>私密对话</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -12,7 +12,9 @@
             <h2 id="chat-title">私密对话</h2>
             <div class="chat-actions">
                 <span id="user-type-badge" class="user-badge"></span>
-                <button id="back-btn" class="back-button">返回</button>
+                <button id="back-btn" class="back-button">
+                    <span id="back-text">返回</span>
+                </button>
             </div>
         </div>
 
@@ -23,7 +25,7 @@
         <div class="chat-input-area">
             <textarea 
                 id="message-input" 
-                placeholder="输入您的消息...（支持换行，Ctrl+Enter发送）" 
+                placeholder="输入您的消息...（支持换行，Enter发送，Shift+Enter换行）" 
                 rows="3"
             ></textarea>
             <button id="send-btn" class="send-button">发送</button>
@@ -31,138 +33,6 @@
     </div>
 
     <script src="script.js"></script>
-    <script>
-        let currentChat = null;
-        let refreshInterval = null;
-
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeChat();
-        });
-
-        async function initializeChat() {
-            // 从localStorage获取聊天信息
-            const chatData = localStorage.getItem('currentChat');
-            if (!chatData) {
-                showAlert('未找到对话信息', 'error');
-                setTimeout(() => window.location.href = 'index.html', 2000);
-                return;
-            }
-
-            currentChat = JSON.parse(chatData);
-            
-            // 设置界面
-            document.getElementById('chat-title').textContent = `对话 - ${currentChat.secretKey}`;
-            document.getElementById('user-type-badge').textContent = currentChat.userType === 'admin' ? '管理员' : '用户';
-            document.getElementById('user-type-badge').className = `user-badge ${currentChat.userType}`;
-            
-            // 设置事件监听
-            document.getElementById('send-btn').addEventListener('click', sendMessage);
-            document.getElementById('message-input').addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' && e.ctrlKey) {
-                    sendMessage();
-                }
-            });
-            
-            document.getElementById('back-btn').addEventListener('click', () => {
-                if (currentChat.userType === 'admin') {
-                    window.location.href = 'admin.html';
-                } else {
-                    window.location.href = 'index.html';
-                }
-            });
-
-            // 开始加载消息
-            await loadMessages();
-            
-            // 设置自动刷新
-            refreshInterval = setInterval(loadMessages, 5000);
-        }
-
-        async function loadMessages() {
-            if (!currentChat) return;
-
-            try {
-                const messages = await getIssueComments(currentChat.issueNumber);
-                displayMessages(messages);
-            } catch (error) {
-                console.error('加载消息错误:', error);
-            }
-        }
-
-        function displayMessages(messages) {
-            const messageList = document.getElementById('message-list');
-            
-            if (messages.length === 0) {
-                messageList.innerHTML = '<div class="no-messages">暂无消息，开始第一个对话吧！</div>';
-                return;
-            }
-
-            const messagesHTML = messages.map(msg => {
-                const time = new Date(msg.created_at).toLocaleString('zh-CN');
-                const isCurrentUser = msg.user.login === CONFIG.owner;
-                
-                return `
-                    <div class="message ${isCurrentUser ? 'own-message' : 'other-message'}">
-                        <div class="message-header">
-                            <span class="message-sender">${msg.user.login}</span>
-                            <span class="message-time">${time}</span>
-                        </div>
-                        <div class="message-content">${formatMessageContent(msg.body)}</div>
-                    </div>
-                `;
-            }).join('');
-
-            messageList.innerHTML = messagesHTML;
-            scrollToBottom();
-        }
-
-        function formatMessageContent(content) {
-            // 保留换行和空格
-            return content
-                .replace(/\n/g, '<br>')
-                .replace(/ /g, '&nbsp;');
-        }
-
-        async function sendMessage() {
-            const input = document.getElementById('message-input');
-            const message = input.value.trim();
-            
-            if (!message) {
-                showAlert('请输入消息内容', 'error');
-                return;
-            }
-
-            if (currentChat.userType === 'user' && !currentChat.userToken) {
-                // 用户需要输入Token来发送消息
-                currentChat.userToken = prompt('请输入您的GitHub Token以发送消息：');
-                if (!currentChat.userToken) return;
-            }
-
-            const token = currentChat.userType === 'admin' ? currentChat.adminToken : currentChat.userToken;
-
-            try {
-                const success = await postComment(currentChat.issueNumber, message, token);
-                if (success) {
-                    input.value = '';
-                    await loadMessages(); // 立即刷新消息
-                }
-            } catch (error) {
-                console.error('发送消息错误:', error);
-                showAlert('发送失败: ' + error.message, 'error');
-            }
-        }
-
-        function scrollToBottom() {
-            const messageList = document.getElementById('message-list');
-            messageList.scrollTop = messageList.scrollHeight;
-        }
-
-        // 清理interval
-        window.addEventListener('beforeunload', () => {
-            if (refreshInterval) {
-                clearInterval(refreshInterval);
-            }
-        });
-    </script>
+    <script src="chat-manager.js"></script>
 </body>
 </html>
