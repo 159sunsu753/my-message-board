@@ -1,6 +1,8 @@
 class AdminManager {
     constructor() {
         this.currentPage = 'keys';
+        this.currentChat = null;
+        this.messageRefreshInterval = null;
         this.init();
     }
 
@@ -55,6 +57,32 @@ class AdminManager {
         document.getElementById('back-to-admin').addEventListener('click', () => {
             this.showAdminPanel();
         });
+
+        // 管理员发送消息事件
+        document.getElementById('admin-send-btn').addEventListener('click', () => {
+            this.sendAdminMessage();
+        });
+
+        document.getElementById('admin-message-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                if (e.shiftKey) {
+                    return;
+                } else {
+                    e.preventDefault();
+                    this.sendAdminMessage();
+                }
+            }
+        });
+
+        // 自动调整输入框高度
+        document.getElementById('admin-message-input').addEventListener('input', () => {
+            this.adjustTextareaHeight(document.getElementById('admin-message-input'));
+        });
+    }
+
+    adjustTextareaHeight(textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
     }
 
     switchPage(page) {
@@ -310,12 +338,149 @@ class AdminManager {
     }
 
     openChat(issueNumber, secretKey) {
-        const chatFrame = document.getElementById('chat-frame');
-        const chatUrl = `chat.html?issue=${issueNumber}&key=${encodeURIComponent(secretKey)}&userType=admin`;
-        chatFrame.src = chatUrl;
+        this.currentChat = { issueNumber, secretKey };
         
         document.getElementById('current-chat-title').textContent = `对话: ${secretKey}`;
         this.showChatPanel();
+        
+        // 加载对话消息
+        this.loadChatMessages(issueNumber);
+        
+        // 开始自动刷新
+        this.startChatAutoRefresh(issueNumber);
+    }
+
+    async loadChatMessages(issueNumber) {
+        try {
+            const messages = await getChatMessages(issueNumber);
+            this.displayChatMessages(messages);
+        } catch (error) {
+            console.error('加载对话消息错误:', error);
+            this.showChatErrorMessage('加载消息失败: ' + error.message);
+        }
+    }
+
+    displayChatMessages(messages) {
+        const messageList = document.getElementById('admin-message-list');
+        
+        if (messages.length === 0) {
+            messageList.innerHTML = `
+                <div class="welcome-message">
+                    <div class="welcome-avatar">👋</div>
+                    <div class="welcome-content">
+                        <h3>开始对话</h3>
+                        <p>这是管理员对话界面，您可以在这里回复用户消息</p>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        const messagesHTML = messages.map((msg) => {
+            const time = new Date(msg.created_at).toLocaleTimeString('zh-CN', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            const isOwnMessage = msg.user.login === CONFIG.owner;
+            
+            return `
+                <div class="admin-message ${isOwnMessage ? 'admin-own-message' : 'admin-other-message'}">
+                    <div class="admin-message-bubble">
+                        <div class="admin-message-header">
+                            <span class="admin-message-sender">${msg.user.login}</span>
+                            <span class="admin-message-time">${time}</span>
+                        </div>
+                        <div class="admin-message-content">${formatMessageContent(msg.body)}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        messageList.innerHTML = messagesHTML;
+        this.scrollChatToBottom();
+    }
+
+    async sendAdminMessage() {
+        const input = document.getElementById('admin-message-input');
+        const message = input.value.trim();
+        
+        if (!message) {
+            showAlert('请输入消息内容', 'error');
+            return;
+        }
+
+        if (!this.currentChat) {
+            showAlert('未选择对话', 'error');
+            return;
+        }
+
+        const sendBtn = document.getElementById('admin-send-btn');
+        const originalHTML = sendBtn.innerHTML;
+        
+        sendBtn.disabled = true;
+        sendBtn.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M10.72,19.9a8,8,0,0,1-6.5-9.79A7.77,7.77,0,0,1,10.4,4.16a8,8,0,0,1,9.49,6.52A1.54,1.54,0,0,0,21.38,12h.13a1.37,1.37,0,0,0,1.38-1.54,11,11,0,1,0-12.7,12.39A1.54,1.54,0,0,0,12,21.34h0A1.47,1.47,0,0,0,10.72,19.9Z">
+                    <animateTransform attributeName="transform" type="rotate" dur="0.75s" values="0 12 12;360 12 12" repeatCount="indefinite"/>
+                </path>
+            </svg>
+        `;
+
+        try {
+            await sendChatMessage(this.currentChat.issueNumber, message);
+            
+            input.value = '';
+            this.adjustTextareaHeight(input);
+            
+            showAlert('消息已发送', 'success');
+            
+            // 重新加载消息
+            await this.loadChatMessages(this.currentChat.issueNumber);
+            
+        } catch (error) {
+            console.error('发送消息错误:', error);
+            showAlert('发送失败: ' + error.message, 'error');
+        } finally {
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = originalHTML;
+            input.focus();
+        }
+    }
+
+    showChatErrorMessage(message) {
+        const messageList = document.getElementById('admin-message-list');
+        messageList.innerHTML = `
+            <div class="error-message">
+                <div class="error-icon">⚠️</div>
+                <div class="error-text">${message}</div>
+                <button onclick="adminManager.loadChatMessages(${this.currentChat?.issueNumber})" class="retry-btn">重新加载</button>
+            </div>
+        `;
+    }
+
+    scrollChatToBottom() {
+        const messageList = document.getElementById('admin-message-list');
+        setTimeout(() => {
+            messageList.scrollTop = messageList.scrollHeight;
+        }, 100);
+    }
+
+    startChatAutoRefresh(issueNumber) {
+        // 停止之前的刷新
+        if (this.messageRefreshInterval) {
+            clearInterval(this.messageRefreshInterval);
+        }
+
+        // 开始新的刷新
+        this.messageRefreshInterval = setInterval(async () => {
+            if (this.currentChat && this.currentChat.issueNumber === issueNumber) {
+                try {
+                    await this.loadChatMessages(issueNumber);
+                } catch (error) {
+                    console.error('自动刷新消息错误:', error);
+                }
+            }
+        }, 5000);
     }
 
     showChatPanel() {
@@ -326,6 +491,13 @@ class AdminManager {
     showAdminPanel() {
         document.getElementById('chat-panel').style.display = 'none';
         document.getElementById('welcome-panel').style.display = 'block';
+        
+        // 停止自动刷新
+        if (this.messageRefreshInterval) {
+            clearInterval(this.messageRefreshInterval);
+            this.messageRefreshInterval = null;
+        }
+        
         this.loadDashboardData();
         this.updateQuickStats();
     }
@@ -354,6 +526,11 @@ class AdminManager {
     }
 
     logout() {
+        // 停止自动刷新
+        if (this.messageRefreshInterval) {
+            clearInterval(this.messageRefreshInterval);
+        }
+        
         sessionStorage.removeItem('adminAuth');
         sessionStorage.removeItem('githubToken');
         sessionStorage.removeItem('currentChat');
