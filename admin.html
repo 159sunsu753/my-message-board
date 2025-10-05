@@ -3,140 +3,140 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>私密留言板 - 管理终端</title>
+    <title>私密对话系统 - 管理终端</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="admin-container">
+        <!-- 侧边栏 -->
         <div class="admin-sidebar">
             <div class="admin-header">
                 <h2>🛠️ 管理终端</h2>
-                <button id="logout-admin" class="logout-btn">退出</button>
+                <div class="admin-info">
+                    <span id="admin-name">管理员</span>
+                    <button id="logout-admin" class="logout-btn">退出</button>
+                </div>
             </div>
             
-            <div class="key-management">
-                <h3>密钥管理</h3>
+            <nav class="admin-nav">
+                <button class="nav-btn active" data-page="keys">密钥管理</button>
+                <button class="nav-btn" data-page="chats">对话监控</button>
+                <button class="nav-btn" data-page="settings">系统设置</button>
+            </nav>
+
+            <!-- 密钥管理页面 -->
+            <div id="keys-page" class="admin-page active">
+                <div class="page-header">
+                    <h3>🔑 密钥管理</h3>
+                    <button id="create-key-btn" class="primary-btn">创建新密钥</button>
+                </div>
+                
                 <div class="create-key-form">
                     <input type="text" id="new-key-name" placeholder="密钥名称（如：学生A）">
-                    <input type="text" id="new-key-value" placeholder="密钥内容（如：星光对话2024）">
-                    <button id="create-key-btn" class="primary-btn">创建新密钥</button>
+                    <input type="text" id="new-key-value" placeholder="密钥内容（支持中文）">
+                    <button id="confirm-create-btn" class="primary-btn">确认创建</button>
+                </div>
+
+                <div class="key-list-container">
+                    <h4>现有密钥列表</h4>
+                    <div id="key-list" class="key-list">
+                        <div class="loading">加载中...</div>
+                    </div>
                 </div>
             </div>
 
-            <div class="key-list-container">
-                <h4>现有密钥列表</h4>
-                <div id="key-list" class="key-list">
-                    <!-- 密钥列表动态加载 -->
-                    <div class="loading">加载中...</div>
+            <!-- 对话监控页面 -->
+            <div id="chats-page" class="admin-page">
+                <div class="page-header">
+                    <h3>💬 对话监控</h3>
+                </div>
+                <div id="chat-list" class="key-list">
+                    <div class="loading">加载对话列表中...</div>
+                </div>
+            </div>
+
+            <!-- 系统设置页面 -->
+            <div id="settings-page" class="admin-page">
+                <div class="page-header">
+                    <h3>⚙️ 系统设置</h3>
+                </div>
+                
+                <div class="settings-form">
+                    <div class="setting-item">
+                        <label>当前管理员账号</label>
+                        <input type="text" id="current-username" readonly>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <label>更改管理员密码</label>
+                        <input type="password" id="new-password" placeholder="新密码">
+                        <input type="password" id="confirm-password" placeholder="确认新密码">
+                        <button id="change-password-btn" class="primary-btn">更改密码</button>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <label>系统信息</label>
+                        <div class="system-info">
+                            <p>仓库: <span id="repo-info">加载中...</span></p>
+                            <p>对话数量: <span id="chat-count">-</span></p>
+                            <p>最后同步: <span id="last-sync">-</span></p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
+        <!-- 主内容区 -->
         <div class="admin-main">
-            <div id="chat-selection" class="chat-selection">
+            <div id="welcome-panel" class="welcome-panel">
                 <div class="welcome-message">
                     <h1>欢迎使用管理终端</h1>
-                    <p>请在左侧选择或创建一个密钥开始对话</p>
+                    <p>请在左侧选择功能开始管理</p>
+                    <div class="quick-stats">
+                        <div class="stat-card">
+                            <h3 id="total-keys">-</h3>
+                            <p>总密钥数</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3 id="active-chats">-</h3>
+                            <p>活跃对话</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3 id="total-messages">-</h3>
+                            <p>总消息数</p>
+                        </div>
+                    </div>
                 </div>
             </div>
             
-            <div id="chat-interface" class="chat-interface" style="display: none;">
-                <!-- 对话界面由 chat.html 加载 -->
+            <div id="chat-panel" class="chat-panel" style="display: none;">
+                <!-- 聊天界面通过iframe加载 -->
+                <div class="chat-panel-header">
+                    <button id="back-to-admin" class="back-button">← 返回管理</button>
+                    <h3 id="current-chat-title">对话标题</h3>
+                </div>
+                <iframe id="chat-frame" src="about:blank" style="width: 100%; height: calc(100vh - 60px); border: none;"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <!-- 创建密钥确认模态框 -->
+    <div id="create-key-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3>创建新密钥</h3>
+            <div class="key-preview">
+                <p><strong>名称:</strong> <span id="preview-name"></span></p>
+                <p><strong>密钥:</strong> <span id="preview-key"></span></p>
+            </div>
+            <p class="warning">⚠️ 请妥善保存密钥内容，创建后无法修改！</p>
+            <div class="modal-actions">
+                <button id="confirm-create-modal" class="primary-btn">确认创建</button>
+                <button id="cancel-create" class="secondary-btn">取消</button>
             </div>
         </div>
     </div>
 
     <script src="script.js"></script>
-    <script>
-        // 管理员专用JavaScript
-        let currentToken = '';
-        
-        document.getElementById('create-key-btn').addEventListener('click', createNewKey);
-        document.getElementById('logout-admin').addEventListener('click', () => {
-            localStorage.removeItem('adminToken');
-            window.location.href = 'index.html';
-        });
-
-        // 初始化管理员界面
-        document.addEventListener('DOMContentLoaded', async function() {
-            await loadExistingKeys();
-        });
-
-        async function createNewKey() {
-            const keyName = document.getElementById('new-key-name').value.trim();
-            const keyValue = document.getElementById('new-key-value').value.trim();
-            
-            if (!keyName || !keyValue) {
-                showAlert('请填写密钥名称和内容', 'error');
-                return;
-            }
-
-            if (!currentToken) {
-                currentToken = prompt('请输入GitHub Personal Access Token：');
-                if (!currentToken) return;
-            }
-
-            try {
-                showAlert('创建密钥中...', 'info');
-                
-                // 创建新的Issue作为对话线程
-                const issue = await createNewIssue(keyName, keyValue, currentToken);
-                
-                if (issue) {
-                    showAlert(`密钥 "${keyValue}" 创建成功！`, 'success');
-                    document.getElementById('new-key-name').value = '';
-                    document.getElementById('new-key-value').value = '';
-                    await loadExistingKeys();
-                }
-            } catch (error) {
-                console.error('创建密钥错误:', error);
-                showAlert('创建失败: ' + error.message, 'error');
-            }
-        }
-
-        async function loadExistingKeys() {
-            try {
-                const issues = await getAllIssues();
-                const keyList = document.getElementById('key-list');
-                
-                if (issues.length === 0) {
-                    keyList.innerHTML = '<div class="no-keys">暂无密钥，请创建第一个密钥</div>';
-                    return;
-                }
-
-                keyList.innerHTML = issues.map(issue => {
-                    const secretKey = extractSecretKeyFromIssue(issue);
-                    return `
-                        <div class="key-item" data-issue-number="${issue.number}">
-                            <div class="key-name">${issue.title.replace('密钥: ', '')}</div>
-                            <div class="key-value">${secretKey}</div>
-                            <button class="chat-btn" onclick="openChat(${issue.number}, '${secretKey}')">进入对话</button>
-                        </div>
-                    `;
-                }).join('');
-            } catch (error) {
-                console.error('加载密钥列表错误:', error);
-                document.getElementById('key-list').innerHTML = '<div class="error">加载失败</div>';
-            }
-        }
-
-        function openChat(issueNumber, secretKey) {
-            localStorage.setItem('currentChat', JSON.stringify({
-                issueNumber: issueNumber,
-                secretKey: secretKey,
-                userType: 'admin'
-            }));
-            // 在管理界面内加载聊天
-            loadChatInterface(issueNumber, secretKey, 'admin');
-        }
-
-        function loadChatInterface(issueNumber, secretKey, userType) {
-            document.getElementById('chat-selection').style.display = 'none';
-            document.getElementById('chat-interface').style.display = 'block';
-            document.getElementById('chat-interface').innerHTML = `
-                <iframe src="chat.html" style="width: 100%; height: 100vh; border: none;"></iframe>
-            `;
-        }
-    </script>
+    <script src="admin-manager.js"></script>
 </body>
 </html>
