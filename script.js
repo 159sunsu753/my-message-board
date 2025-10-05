@@ -38,19 +38,29 @@ function simpleDecrypt(encrypted) {
 }
 
 async function githubApiRequest(url, options = {}) {
-    console.log('API请求:', url, options);
+    console.log('API请求:', url);
     
     try {
-        const response = await fetch(`${CONFIG.apiBase}${url}`, {
+        const fullUrl = `${CONFIG.apiBase}${url}`;
+        const requestOptions = {
             headers: {
                 'Accept': 'application/vnd.github.v3+json',
                 ...options.headers
             },
             ...options
-        });
+        };
+
+        console.log('请求选项:', requestOptions);
+
+        const response = await fetch(fullUrl, requestOptions);
         
         if (!response.ok) {
-            const errorText = await response.text();
+            let errorText = '';
+            try {
+                errorText = await response.text();
+            } catch (e) {
+                errorText = '无法读取错误信息';
+            }
             throw new Error(`API错误: ${response.status} - ${errorText || response.statusText}`);
         }
         
@@ -79,10 +89,11 @@ async function initializeSystem(adminUsername, adminPassword) {
     const issueBody = `# 🔧 系统配置 - 请勿删除\n\n这是私密对话系统的配置文件。\n\n\`\`\`json\n${JSON.stringify(config, null, 2)}\n\`\`\``;
 
     try {
+        const token = await getAdminToken();
         const issue = await githubApiRequest(`/repos/${CONFIG.owner}/${CONFIG.repo}/issues`, {
             method: 'POST',
             headers: {
-                'Authorization': `token ${await getAdminToken()}`,
+                'Authorization': `token ${token}`,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
@@ -93,6 +104,7 @@ async function initializeSystem(adminUsername, adminPassword) {
         });
         
         console.log('系统初始化成功，Issue编号:', issue.number);
+        CONFIG.CONFIG_ISSUE_NUMBER = issue.number;
         return issue;
     } catch (error) {
         console.error('系统初始化失败:', error);
@@ -126,10 +138,11 @@ async function getAdminConfig() {
 async function updateConfig(config) {
     const issueBody = `# 🔧 系统配置 - 请勿删除\n\n这是私密对话系统的配置文件。\n\n\`\`\`json\n${JSON.stringify(config, null, 2)}\n\`\`\``;
 
+    const token = await getAdminToken();
     await githubApiRequest(`/repos/${CONFIG.owner}/${CONFIG.repo}/issues/${CONFIG.CONFIG_ISSUE_NUMBER}`, {
         method: 'PATCH',
         headers: {
-            'Authorization': `token ${await getAdminToken()}`,
+            'Authorization': `token ${token}`,
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -176,6 +189,7 @@ async function createNewSecretKey(keyName, secretKey) {
     console.log('创建新密钥:', keyName, secretKey);
     
     const config = await getAdminConfig();
+    const token = await getAdminToken();
     
     // 创建对话Issue
     const issueBody = `# 💬 对话: ${keyName}\n\n**密钥:** ${secretKey}\n**创建时间:** ${new Date().toLocaleString('zh-CN')}\n**状态:** 🔵 活跃\n\n---\n\n此对话线程由密钥保护，只有持有正确密钥的用户可以访问。`;
@@ -183,7 +197,7 @@ async function createNewSecretKey(keyName, secretKey) {
     const issue = await githubApiRequest(`/repos/${CONFIG.owner}/${CONFIG.repo}/issues`, {
         method: 'POST',
         headers: {
-            'Authorization': `token ${await getAdminToken()}`,
+            'Authorization': `token ${token}`,
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -244,10 +258,11 @@ async function getChatMessages(issueNumber) {
 async function sendChatMessage(issueNumber, message) {
     console.log('发送消息到Issue:', issueNumber, '内容:', message.substring(0, 50) + '...');
     
+    const token = await getAdminToken();
     await githubApiRequest(`/repos/${CONFIG.owner}/${CONFIG.repo}/issues/${issueNumber}/comments`, {
         method: 'POST',
         headers: {
-            'Authorization': `token ${await getAdminToken()}`,
+            'Authorization': `token ${token}`,
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -326,3 +341,4 @@ window.checkAdminAuth = checkAdminAuth;
 window.formatMessageContent = formatMessageContent;
 window.simpleEncrypt = simpleEncrypt;
 window.simpleDecrypt = simpleDecrypt;
+window.showAlert = showAlert;
