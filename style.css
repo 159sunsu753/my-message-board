@@ -395,3 +395,143 @@
 .key-item, .chat-item {
     animation: fadeIn 0.3s ease;
 }
+/* Token输入模态框样式 */
+.token-instructions {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 15px 0;
+    font-size: 0.9em;
+}
+
+.token-instructions p {
+    margin: 8px 0;
+}
+
+.token-link {
+    display: inline-block;
+    background: #24292e;
+    color: white;
+    padding: 8px 15px;
+    border-radius: 6px;
+    text-decoration: none;
+    margin-top: 10px;
+}
+
+.token-link:hover {
+    background: #444d56;
+}
+
+.token-input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e1e5e9;
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 14px;
+    margin: 10px 0;
+}
+
+.token-input:focus {
+    border-color: #0366d6;
+    outline: none;
+}
+
+/* 统计卡片动画 */
+.stat-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+/* 加载动画 */
+.loading-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* 错误消息样式 */
+.error-message {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+}
+
+.error-icon {
+    font-size: 3em;
+    margin-bottom: 15px;
+}
+
+.retry-btn {
+    background: #3498db;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-top: 15px;
+}
+
+/* 欢迎消息样式 */
+.welcome-message .hint {
+    font-size: 0.9em;
+    color: #999;
+    font-style: italic;
+    margin-top: 10px;
+}
+
+/* 密钥状态样式 */
+.key-status {
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.8em;
+    font-weight: 600;
+}
+
+.key-status.active {
+    background: #27ae60;
+    color: white;
+}
+
+.key-status.inactive {
+    background: #7f8c8d;
+    color: white;
+}
+
+/* 响应式设计改进 */
+@media (max-width: 768px) {
+    .key-actions {
+        flex-direction: column;
+    }
+    
+    .modal-actions {
+        flex-direction: column;
+    }
+}
+
+/* 动画效果 */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.message {
+    animation: fadeIn 0.3s ease;
+}
+
+.key-item, .chat-item {
+    animation: fadeIn 0.3s ease;
+}
