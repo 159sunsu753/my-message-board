@@ -12,6 +12,7 @@ class ChatManager {
         this.bindEvents();
         await this.loadMessages();
         this.startAutoRefresh();
+        console.log('聊天管理器初始化完成');
     }
 
     async loadChatInfo() {
@@ -28,10 +29,10 @@ class ChatManager {
         } else if (sessionChat) {
             this.currentChat = JSON.parse(sessionChat);
         } else {
-            showAlert('未找到对话信息', 'error');
+            this.showErrorMessage('未找到对话信息');
             setTimeout(() => {
-                window.location.href = this.currentChat?.userType === 'admin' ? 'admin.html' : 'index.html';
-            }, 2000);
+                window.location.href = 'index.html';
+            }, 3000);
             return;
         }
 
@@ -51,20 +52,29 @@ class ChatManager {
     }
 
     bindEvents() {
-        document.getElementById('send-btn').addEventListener('click', () => {
+        const sendBtn = document.getElementById('send-btn');
+        const messageInput = document.getElementById('message-input');
+
+        sendBtn.addEventListener('click', () => {
             this.sendMessage();
         });
 
-        const messageInput = document.getElementById('message-input');
         messageInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 if (e.shiftKey) {
+                    // Shift+Enter 换行
                     return;
                 } else {
+                    // Enter 发送
                     e.preventDefault();
                     this.sendMessage();
                 }
             }
+        });
+
+        // 自动调整输入框高度
+        messageInput.addEventListener('input', () => {
+            this.adjustTextareaHeight(messageInput);
         });
 
         document.getElementById('back-btn').addEventListener('click', () => {
@@ -76,10 +86,16 @@ class ChatManager {
         });
     }
 
+    adjustTextareaHeight(textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+    }
+
     async loadMessages() {
         if (!this.currentChat) return;
 
         try {
+            this.showLoadingState();
             const messages = await getChatMessages(this.currentChat.issueNumber);
             this.displayMessages(messages);
             this.lastMessageCount = messages.length;
@@ -89,43 +105,74 @@ class ChatManager {
         }
     }
 
-    displayMessages(messages) {
+    showLoadingState() {
         const messageList = document.getElementById('message-list');
-        
-        if (messages.length === 0) {
-            messageList.innerHTML = `
-                <div class="no-messages">
-                    <div class="welcome-message">
-                        <h3>💬 开始对话</h3>
-                        <p>这是您的新对话空间，发送第一条消息开始交流吧！</p>
-                        <p class="hint">消息支持换行和完整格式显示</p>
+        if (!messageList.querySelector('.loading-messages')) {
+            messageList.innerHTML += `
+                <div class="loading-messages">
+                    <div class="typing-indicator">
+                        <span>加载中</span>
+                        <div class="typing-dots">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
                     </div>
                 </div>
             `;
+        }
+    }
+
+    displayMessages(messages) {
+        const messageList = document.getElementById('message-list');
+        
+        // 移除加载状态
+        const loadingElement = messageList.querySelector('.loading-messages');
+        if (loadingElement) {
+            loadingElement.remove();
+        }
+
+        if (messages.length === 0) {
+            // 保留欢迎消息
             return;
         }
 
-        const messagesHTML = messages.map((msg, index) => {
-            const time = new Date(msg.created_at).toLocaleString('zh-CN');
+        // 移除旧的动态消息，保留欢迎消息
+        const welcomeMessage = messageList.querySelector('.welcome-message');
+        messageList.innerHTML = '';
+        if (welcomeMessage) {
+            messageList.appendChild(welcomeMessage);
+        }
+
+        const messagesHTML = messages.map((msg) => {
+            const time = new Date(msg.created_at).toLocaleTimeString('zh-CN', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
             const isOwnMessage = msg.user.login === CONFIG.owner;
             
             return `
                 <div class="message ${isOwnMessage ? 'own-message' : 'other-message'}">
-                    <div class="message-header">
-                        <span class="message-sender">${msg.user.login}</span>
-                        <span class="message-time">${time}</span>
+                    <div class="message-bubble">
+                        <div class="message-header">
+                            <span class="message-sender">${msg.user.login}</span>
+                            <span class="message-time">${time}</span>
+                        </div>
+                        <div class="message-content">${this.formatMessageContent(msg.body)}</div>
                     </div>
-                    <div class="message-content">${this.formatMessageContent(msg.body)}</div>
                 </div>
             `;
         }).join('');
 
-        const hasNewMessages = messages.length > this.lastMessageCount;
-        messageList.innerHTML = messagesHTML;
+        messageList.innerHTML += messagesHTML;
         
+        // 检查是否有新消息
+        const hasNewMessages = messages.length > this.lastMessageCount;
         if (hasNewMessages || this.lastMessageCount === 0) {
             this.scrollToBottom();
         }
+        
+        this.lastMessageCount = messages.length;
     }
 
     formatMessageContent(content) {
@@ -135,12 +182,14 @@ class ChatManager {
         div.textContent = content;
         let escaped = div.innerHTML;
         
+        // 保留换行和空格
         escaped = escaped.replace(/\n/g, '<br>');
         escaped = escaped.replace(/  /g, ' &nbsp;');
         
+        // 链接检测
         escaped = escaped.replace(
             /(https?:\/\/[^\s<]+)/g, 
-            '<a href="$1" target="_blank" rel="noopener" style="color: #2196F3; text-decoration: underline;">$1</a>'
+            '<a href="$1" target="_blank" rel="noopener" style="color: inherit; text-decoration: underline;">$1</a>'
         );
         
         return escaped;
@@ -155,37 +204,41 @@ class ChatManager {
             return;
         }
 
+        if (message.length > 10000) {
+            showAlert('消息过长，请缩短内容', 'error');
+            return;
+        }
+
         const sendBtn = document.getElementById('send-btn');
+        const originalText = sendBtn.innerHTML;
+        
         sendBtn.disabled = true;
-        sendBtn.textContent = '发送中...';
+        sendBtn.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M10.72,19.9a8,8,0,0,1-6.5-9.79A7.77,7.77,0,0,1,10.4,4.16a8,8,0,0,1,9.49,6.52A1.54,1.54,0,0,0,21.38,12h.13a1.37,1.37,0,0,0,1.38-1.54,11,11,0,1,0-12.7,12.39A1.54,1.54,0,0,0,12,21.34h0A1.47,1.47,0,0,0,10.72,19.9Z">
+                    <animateTransform attributeName="transform" type="rotate" dur="0.75s" values="0 12 12;360 12 12" repeatCount="indefinite"/>
+                </path>
+            </svg>
+        `;
 
         try {
             await sendChatMessage(this.currentChat.issueNumber, message);
+            
             input.value = '';
+            this.adjustTextareaHeight(input);
+            
+            showAlert('消息已发送', 'success');
+            
             await this.loadMessages();
-            this.showSendSuccess();
+            
         } catch (error) {
             console.error('发送消息错误:', error);
             showAlert('发送失败: ' + error.message, 'error');
         } finally {
             sendBtn.disabled = false;
-            sendBtn.textContent = '发送';
+            sendBtn.innerHTML = originalText;
             input.focus();
         }
-    }
-
-    showSendSuccess() {
-        const tempAlert = document.createElement('div');
-        tempAlert.className = 'custom-alert success';
-        tempAlert.textContent = '消息已发送';
-        tempAlert.style.cssText = 'position: fixed; bottom: 100px; right: 20px; z-index: 1000;';
-        document.body.appendChild(tempAlert);
-        
-        setTimeout(() => {
-            if (tempAlert.parentNode) {
-                tempAlert.remove();
-            }
-        }, 1000);
     }
 
     showErrorMessage(message) {
@@ -194,7 +247,7 @@ class ChatManager {
             <div class="error-message">
                 <div class="error-icon">⚠️</div>
                 <div class="error-text">${message}</div>
-                <button onclick="chatManager.loadMessages()" class="retry-btn">重试</button>
+                <button onclick="chatManager.loadMessages()" class="retry-btn">重新加载</button>
             </div>
         `;
     }
@@ -219,23 +272,18 @@ class ChatManager {
             } catch (error) {
                 console.error('自动刷新消息错误:', error);
             }
-        }, 5000);
+        }, 3000);
     }
 
     stopAutoRefresh() {
         if (this.messageRefreshInterval) {
             clearInterval(this.messageRefreshInterval);
-            this.messageRefreshInterval = null;
         }
     }
 
     goBack() {
         if (this.userType === 'admin') {
-            if (window.parent && window.parent.adminManager) {
-                window.parent.adminManager.showAdminPanel();
-            } else {
-                window.location.href = 'admin.html';
-            }
+            window.location.href = 'admin.html';
         } else {
             sessionStorage.removeItem('currentChat');
             window.location.href = 'index.html';
