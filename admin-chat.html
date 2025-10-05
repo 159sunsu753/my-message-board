@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理员对话</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .admin-chat-container {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: white;
+        }
+        
+        .admin-chat-header {
+            background: white;
+            padding: 16px 20px;
+            border-bottom: 1px solid #eaeaea;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        
+        .admin-chat-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .admin-chat-avatar {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: white;
+        }
+        
+        .admin-chat-details h2 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 2px;
+        }
+        
+        .admin-chat-status {
+            font-size: 12px;
+            color: #00d600;
+            font-weight: 500;
+        }
+        
+        .admin-close-btn {
+            padding: 8px 16px;
+            background: #f5f5f5;
+            color: #666;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .admin-close-btn:hover {
+            background: #eaeaea;
+            border-color: #ccc;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-chat-container">
+        <!-- 头部 -->
+        <div class="admin-chat-header">
+            <div class="admin-chat-info">
+                <div class="admin-chat-avatar">👨‍💼</div>
+                <div class="admin-chat-details">
+                    <h2 id="admin-chat-title">管理员对话</h2>
+                    <span class="admin-chat-status">● 在线</span>
+                </div>
+            </div>
+            <button id="admin-close-btn" class="admin-close-btn">关闭</button>
+        </div>
+
+        <!-- 消息区域 -->
+        <div class="messages-container">
+            <div class="messages-scroll" id="admin-chat-message-list">
+                <div class="welcome-message">
+                    <div class="welcome-avatar">💬</div>
+                    <div class="welcome-content">
+                        <h3>管理员对话界面</h3>
+                        <p>您可以在这里与用户进行对话</p>
+                        <div class="welcome-features">
+                            <span>✅ 完整消息功能</span>
+                            <span>✅ 实时同步</span>
+                            <span>✅ 多设备支持</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 输入区域 -->
+        <div class="input-container">
+            <div class="input-wrapper">
+                <textarea 
+                    id="admin-chat-message-input" 
+                    placeholder="输入回复消息... (Enter发送，Shift+Enter换行)"
+                    rows="2"
+                ></textarea>
+                <button id="admin-chat-send-btn" class="send-button">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="input-hint">
+                <span>管理员消息</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        class AdminChatManager {
+            constructor() {
+                this.currentChat = null;
+                this.messageRefreshInterval = null;
+                this.lastMessageCount = 0;
+                this.init();
+            }
+
+            async init() {
+                await this.loadChatInfo();
+                this.bindEvents();
+                await this.loadMessages();
+                this.startAutoRefresh();
+                console.log('管理员对话管理器初始化完成');
+            }
+
+            async loadChatInfo() {
+                const urlParams = new URLSearchParams(window.location.search);
+                
+                if (urlParams.get('issue')) {
+                    this.currentChat = {
+                        issueNumber: parseInt(urlParams.get('issue')),
+                        secretKey: decodeURIComponent(urlParams.get('key')),
+                        chatTitle: `对话: ${decodeURIComponent(urlParams.get('key'))}`
+                    };
+                } else {
+                    this.showErrorMessage('未找到对话信息');
+                    return;
+                }
+
+                this.updateUI();
+            }
+
+            updateUI() {
+                document.getElementById('admin-chat-title').textContent = this.currentChat.chatTitle || '管理员对话';
+            }
+
+            bindEvents() {
+                const sendBtn = document.getElementById('admin-chat-send-btn');
+                const messageInput = document.getElementById('admin-chat-message-input');
+
+                sendBtn.addEventListener('click', () => {
+                    this.sendMessage();
+                });
+
+                messageInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        if (e.shiftKey) {
+                            return;
+                        } else {
+                            e.preventDefault();
+                            this.sendMessage();
+                        }
+                    }
+                });
+
+                messageInput.addEventListener('input', () => {
+                    this.adjustTextareaHeight(messageInput);
+                });
+
+                document.getElementById('admin-close-btn').addEventListener('click', () => {
+                    window.close();
+                });
+
+                messageInput.addEventListener('focus', () => {
+                    this.scrollToBottom();
+                });
+            }
+
+            adjustTextareaHeight(textarea) {
+                textarea.style.height = 'auto';
+                textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+            }
+
+            async loadMessages() {
+                if (!this.currentChat) return;
+
+                try {
+                    this.showLoadingState();
+                    const messages = await getChatMessages(this.currentChat.issueNumber);
+                    this.displayMessages(messages);
+                    this.lastMessageCount = messages.length;
+                } catch (error) {
+                    console.error('加载消息错误:', error);
+                    this.showErrorMessage('加载消息失败: ' + error.message);
+                }
+            }
+
+            showLoadingState() {
+                const messageList = document.getElementById('admin-chat-message-list');
+                if (!messageList.querySelector('.loading-messages')) {
+                    messageList.innerHTML += `
+                        <div class="loading-messages">
+                            <div class="typing-indicator">
+                                <span>加载中</span>
+                                <div class="typing-dots">
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            displayMessages(messages) {
+                const messageList = document.getElementById('admin-chat-message-list');
+                
+                const loadingElement = messageList.querySelector('.loading-messages');
+                if (loadingElement) {
+                    loadingElement.remove();
+                }
+
+                const errorElement = messageList.querySelector('.error-message');
+                if (errorElement) {
+                    errorElement.remove();
+                }
+
+                if (messages.length === 0) {
+                    return;
+                }
+
+                const messagesHTML = messages.map((msg) => {
+                    const time = new Date(msg.created_at).toLocaleTimeString('zh-CN', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    const isOwnMessage = msg.user.login === CONFIG.owner;
+                    
+                    return `
+                        <div class="message ${isOwnMessage ? 'own-message' : 'other-message'}">
+                            <div class="message-bubble">
+                                <div class="message-header">
+                                    <span class="message-sender">${msg.user.login}</span>
+                                    <span class="message-time">${time}</span>
+                                </div>
+                                <div class="message-content">${formatMessageContent(msg.body)}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                messageList.innerHTML += messagesHTML;
+                
+                const hasNewMessages = messages.length > this.lastMessageCount;
+                if (hasNewMessages || this.lastMessageCount === 0) {
+                    this.scrollToBottom();
+                }
+                
+                this.lastMessageCount = messages.length;
+            }
+
+            async sendMessage() {
+                const input = document.getElementById('admin-chat-message-input');
+                const message = input.value.trim();
+                
+                if (!message) {
+                    showAlert('请输入消息内容', 'error');
+                    return;
+                }
+
+                const sendBtn = document.getElementById('admin-chat-send-btn');
+                const originalHTML = sendBtn.innerHTML;
+                
+                sendBtn.disabled = true;
+                sendBtn.innerHTML = `
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M10.72,19.9a8,8,0,0,1-6.5-9.79A7.77,7.77,0,0,1,10.4,4.16a8,8,0,0,1,9.49,6.52A1.54,1.54,0,0,0,21.38,12h.13a1.37,1.37,0,0,0,1.38-1.54,11,11,0,1,0-12.7,12.39A1.54,1.54,0,0,0,12,21.34h0A1.47,1.47,0,0,0,10.72,19.9Z">
+                            <animateTransform attributeName="transform" type="rotate" dur="0.75s" values="0 12 12;360 12 12" repeatCount="indefinite"/>
+                        </path>
+                    </svg>
+                `;
+
+                try {
+                    await sendChatMessage(this.currentChat.issueNumber, message);
+                    
+                    input.value = '';
+                    this.adjustTextareaHeight(input);
+                    
+                    showAlert('消息已发送', 'success');
+                    
+                    await this.loadMessages();
+                    
+                } catch (error) {
+                    console.error('发送消息错误:', error);
+                    showAlert('发送失败: ' + error.message, 'error');
+                } finally {
+                    sendBtn.disabled = false;
+                    sendBtn.innerHTML = originalHTML;
+                    input.focus();
+                }
+            }
+
+            showErrorMessage(message) {
+                const messageList = document.getElementById('admin-chat-message-list');
+                messageList.innerHTML = `
+                    <div class="error-message">
+                        <div class="error-icon">⚠️</div>
+                        <div class="error-text">${message}</div>
+                        <button onclick="adminChatManager.loadMessages()" class="retry-btn">重新加载</button>
+                    </div>
+                `;
+            }
+
+            scrollToBottom() {
+                const messageList = document.getElementById('admin-chat-message-list');
+                setTimeout(() => {
+                    messageList.scrollTop = messageList.scrollHeight;
+                }, 100);
+            }
+
+            startAutoRefresh() {
+                this.messageRefreshInterval = setInterval(async () => {
+                    if (!this.currentChat) return;
+                    
+                    try {
+                        const messages = await getChatMessages(this.currentChat.issueNumber);
+                        if (messages.length !== this.lastMessageCount) {
+                            this.displayMessages(messages);
+                            this.lastMessageCount = messages.length;
+                        }
+                    } catch (error) {
+                        console.error('自动刷新消息错误:', error);
+                    }
+                }, 5000);
+            }
+
+            stopAutoRefresh() {
+                if (this.messageRefreshInterval) {
+                    clearInterval(this.messageRefreshInterval);
+                }
+            }
+
+            destroy() {
+                this.stopAutoRefresh();
+            }
+        }
+
+        let adminChatManager;
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            adminChatManager = new AdminChatManager();
+        });
+
+        window.addEventListener('beforeunload', () => {
+            if (adminChatManager) {
+                adminChatManager.destroy();
+            }
+        });
+    </script>
+</body>
+</html>
