@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我们的私密留言板</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- 密码登录界面 -->
+    <div id="login-screen" class="screen">
+        <div class="login-box">
+            <h2>欢迎来到私密留言板</h2>
+            <p>请输入访问密码：</p>
+            <input type="password" id="password-input" placeholder="在此输入密码...">
+            <button id="login-button">进入</button>
+        </div>
+    </div>
+
+    <!-- 留言板主界面 -->
+    <div id="message-board" class="screen" style="display: none;">
+        <header>
+            <h1>私密留言板</h1>
+            <button id="logout-button">退出</button>
+        </header>
+        <main>
+            <ul id="message-list">
+                <!-- 留言会动态加载在这里 -->
+                <li>系统： 欢迎！留言加载中...</li>
+            </ul>
+        </main>
+        <footer>
+            <textarea id="message-input" placeholder="写下你想说的话..."></textarea>
+            <button id="submit-button">发送留言</button>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
